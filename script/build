@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Usage: script/start
+#
+# Builds
+
+set -e
+
+CURRENT_DIR=${PWD}
+./script/godep go build -o ./bin/web

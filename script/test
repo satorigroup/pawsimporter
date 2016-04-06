@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Usage: script/start
+#
+# Runs tests
+
+set -e
+
+# use -v to see all logs
+./script/godep go test ./...
