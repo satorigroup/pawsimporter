@@ -11,6 +11,7 @@ import (
 
 const (
 	TABLE = "LibAreas"
+	ID    = "laa_ID"
 )
 
 type Area struct {
@@ -22,20 +23,22 @@ type SqlResult struct {
 	LaaArearef string `gorm:"column:laa_AreaRef"`
 }
 
-func (a *Area) Update(columnsData []Data, rowIndex int) {
-	if !a.exist(columnsData, rowIndex) {
+func (a *Area) Update(columnsData []Data, rowIndex int) string {
+	exist, areaId := a.exist(columnsData, rowIndex)
+	if !exist {
 		color.Blue("Area does not exist which is specified in row number %d", rowIndex)
-		return
+		return ""
 	}
 	updateString, err := a.getUpdateString(columnsData)
 	if err != nil {
 		color.Red("No fields available for area in row number %d", rowIndex)
-		return
+		return ""
 	}
 
 	whereString, err := a.getWhereString(columnsData)
 	a.DB.Exec(fmt.Sprintf("%s WHERE %s", updateString, whereString))
 	color.Green("Area is updated at row number %d", rowIndex)
+	return areaId
 }
 
 func (a *Area) getUpdateString(columnsData []Data) (string, error) {
@@ -110,19 +113,22 @@ func (a *Area) getRefValue(columnsData []Data) map[string]string {
 	return ref
 }
 
-func (a *Area) exist(columnsData []Data, rowIndex int) bool {
+func (a *Area) exist(columnsData []Data, rowIndex int) (bool, string) {
 	whereString, err := a.getWhereString(columnsData)
+
 	if err != nil {
 		color.Red("No reference fields for area in row number %d", rowIndex)
-		return false
+		return false, ""
 	}
 
-	rowCount := 0
-	a.DB.Table(TABLE).Where(whereString).Count(&rowCount)
+	id := ""
 
-	if rowCount == 1 {
-		return true
+	row := a.DB.Table(TABLE).Select(fmt.Sprintf("convert(nvarchar(36), %s) as id", ID)).Where(whereString).Row()
+	row.Scan(&id)
+
+	if id != "" {
+		return true, id
 	}
 
-	return false
+	return false, ""
 }

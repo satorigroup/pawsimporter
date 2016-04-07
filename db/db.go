@@ -20,7 +20,7 @@ func NewService(connectionString, mode string) (*gorm.DB, error) {
 
 	db.DB().SetMaxIdleConns(10)
 	db.DB().SetMaxOpenConns(100)
-	db.LogMode(true)
+
 	log.Printf("DB is running in %s mode\n", mode)
 
 	return &db, nil

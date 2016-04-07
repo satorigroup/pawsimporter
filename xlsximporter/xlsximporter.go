@@ -2,11 +2,16 @@ package xlsximporter
 
 import (
 	"errors"
+	"fmt"
 	"github.com/fatih/color"
 	"github.com/jinzhu/gorm"
 	"github.com/tealeg/xlsx"
 	"satori/pawsimporter/area"
+	"satori/pawsimporter/control"
+	"satori/pawsimporter/objective"
 	. "satori/pawsimporter/paws"
+	"satori/pawsimporter/risk"
+	"satori/pawsimporter/test"
 	"strings"
 )
 
@@ -22,6 +27,7 @@ type Importer struct {
 }
 
 func (i *Importer) Begin() {
+	fmt.Println("Begin....")
 	if readble, err := i.isExcelFileReadable(); !readble {
 		color.Red("Sorry, unable to read given file: %s, error: %s", i.DataFile, err)
 		return
@@ -31,7 +37,7 @@ func (i *Importer) Begin() {
 		color.Red("Sorry, error occurred %s", err)
 		return
 	}
-	i.importAreas()
+	i.startImporting()
 }
 
 func (i *Importer) readXlsx() error {
@@ -89,14 +95,49 @@ func (i *Importer) readXlsx() error {
 
 }
 
-func (i *Importer) importAreas() {
+func (i *Importer) startImporting() {
 	areaService := &area.Area{}
 	areaService.DB = i.DB
 	areaService.Columns = i.areaColumns
+
+	objectiveService := &objective.Objective{}
+	objectiveService.DB = i.DB
+	objectiveService.Columns = i.objectiveColumns
+
+	riskService := &risk.Risk{}
+	riskService.DB = i.DB
+	riskService.Columns = i.riskColumns
+
+	controlService := &control.Control{}
+	controlService.DB = i.DB
+	controlService.Columns = i.controlColumns
+
+	testService := &test.Test{}
+	testService.DB = i.DB
+	testService.Columns = i.testColumns
+
 	rowLength := len(i.xlsxFile.Sheets[0].Rows)
 	for rowIndex, row := range i.xlsxFile.Sheets[0].Rows[5:rowLength] {
-		columnsData := i.getAreaValues(row)
-		areaService.Update(columnsData, rowIndex)
+		areaId := areaService.Update(i.getAreaValues(row), rowIndex+6)
+		if areaId == "" {
+			continue
+		}
+
+		objId := objectiveService.Update(i.getObjectiveValues(row), rowIndex+6)
+		if objId != "" {
+			riskId := riskService.Update(i.getRiskValues(row), rowIndex+6, objId)
+			if riskId != "" {
+				ctrId := controlService.Update(i.getControlValues(row), rowIndex+6, riskId)
+				if ctrId != "" {
+					testService.Update(i.getTestValues(row), rowIndex+6, areaId, riskId, ctrId)
+				}
+			} else {
+				color.Blue("Unabel to find Risk in row number %d", rowIndex+6)
+			}
+		} else {
+			color.Blue("Unabel to find Objective in row number %d", rowIndex+6)
+		}
+
 	}
 }
 
@@ -113,6 +154,59 @@ func (i *Importer) getAreaValues(row *xlsx.Row) []Data {
 	return columnsData
 }
 
+func (i *Importer) getObjectiveValues(row *xlsx.Row) []Data {
+	var columnsData []Data
+
+	for cellIndex, cell := range row.Cells {
+		for _, objectiveColumn := range i.objectiveColumns {
+			if objectiveColumn.Index == cellIndex {
+
+				columnsData = append(columnsData, Data{cell.String(), cellIndex})
+			}
+		}
+	}
+	return columnsData
+}
+
+func (i *Importer) getRiskValues(row *xlsx.Row) []Data {
+	var columnsData []Data
+
+	for cellIndex, cell := range row.Cells {
+		for _, riskColumn := range i.riskColumns {
+			if riskColumn.Index == cellIndex {
+				columnsData = append(columnsData, Data{cell.String(), cellIndex})
+			}
+		}
+	}
+	return columnsData
+}
+
+func (i *Importer) getControlValues(row *xlsx.Row) []Data {
+	var columnsData []Data
+
+	for cellIndex, cell := range row.Cells {
+		for _, controlColumn := range i.controlColumns {
+			if controlColumn.Index == cellIndex {
+				columnsData = append(columnsData, Data{cell.String(), cellIndex})
+			}
+		}
+	}
+
+	return columnsData
+}
+
+func (i *Importer) getTestValues(row *xlsx.Row) []Data {
+	var columnsData []Data
+
+	for cellIndex, cell := range row.Cells {
+		for _, testColumn := range i.testColumns {
+			if testColumn.Index == cellIndex {
+				columnsData = append(columnsData, Data{cell.String(), cellIndex})
+			}
+		}
+	}
+	return columnsData
+}
 func (i *Importer) importObjective() {
 
 }
@@ -194,7 +288,7 @@ func (i *Importer) addColumns(column Column, tableName string) {
 	}
 
 	if tableName == "control" {
-		i.riskColumns = append(i.riskColumns, column)
+		i.controlColumns = append(i.controlColumns, column)
 		return
 	}
 
