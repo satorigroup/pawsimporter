@@ -31,13 +31,8 @@ func TestFirstAndLast(t *testing.T) {
 		t.Errorf("Find first record as slice")
 	}
 
-	var user User
-	if DB.Joins("left join emails on emails.user_id = users.id").First(&user).Error != nil {
+	if DB.Joins("left join emails on emails.user_id = users.id").First(&User{}).Error != nil {
 		t.Errorf("Should not raise any error when order with Join table")
-	}
-
-	if user.Email != "" {
-		t.Errorf("User's Email should be blank as no one set it")
 	}
 }
 
@@ -633,4 +628,15 @@ func TestSelectWithArrayInput(t *testing.T) {
 	if user.Name != "jinzhu" || user.Age != 42 {
 		t.Errorf("Should have selected both age and name")
 	}
+}
+
+func TestCurrentDatabase(t *testing.T) {
+	databaseName := DB.CurrentDatabase()
+	if err := DB.Error; err != nil {
+		t.Errorf("Problem getting current db name: %s", err)
+	}
+	if databaseName == "" {
+		t.Errorf("Current db name returned empty; this should never happen!")
+	}
+	t.Logf("Got current db name: %v", databaseName)
 }

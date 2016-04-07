@@ -5,6 +5,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/jinzhu/gorm"
 	"github.com/tealeg/xlsx"
+	"satori/pawsimporter/area"
 	. "satori/pawsimporter/paws"
 	"strings"
 )
@@ -30,6 +31,7 @@ func (i *Importer) Begin() {
 		color.Red("Sorry, error occurred %s", err)
 		return
 	}
+	i.importAreas()
 }
 
 func (i *Importer) readXlsx() error {
@@ -84,6 +86,46 @@ func (i *Importer) readXlsx() error {
 		sheetIndex += 1
 	}
 	return nil
+
+}
+
+func (i *Importer) importAreas() {
+	areaService := &area.Area{}
+	areaService.DB = i.DB
+	areaService.Columns = i.areaColumns
+	rowLength := len(i.xlsxFile.Sheets[0].Rows)
+	for rowIndex, row := range i.xlsxFile.Sheets[0].Rows[5:rowLength] {
+		columnsData := i.getAreaValues(row)
+		areaService.Update(columnsData, rowIndex)
+	}
+}
+
+func (i *Importer) getAreaValues(row *xlsx.Row) []Data {
+	var columnsData []Data
+
+	for cellIndex, cell := range row.Cells {
+		for _, areaColumn := range i.areaColumns {
+			if areaColumn.Index == cellIndex {
+				columnsData = append(columnsData, Data{cell.String(), cellIndex})
+			}
+		}
+	}
+	return columnsData
+}
+
+func (i *Importer) importObjective() {
+
+}
+
+func (i *Importer) importRisk(objectiveId string) {
+
+}
+
+func (i *Importer) importControl(riskId string) {
+
+}
+
+func (i *Importer) importTest(parentId, parentType string) {
 
 }
 

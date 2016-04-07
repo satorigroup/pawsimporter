@@ -2,29 +2,28 @@ package gorm
 
 import "reflect"
 
-func beginTransactionCallback(scope *Scope) {
+func BeginTransaction(scope *Scope) {
 	scope.Begin()
 }
 
-func commitOrRollbackTransactionCallback(scope *Scope) {
+func CommitOrRollbackTransaction(scope *Scope) {
 	scope.CommitOrRollback()
 }
 
-func saveBeforeAssociationsCallback(scope *Scope) {
+func SaveBeforeAssociations(scope *Scope) {
 	if !scope.shouldSaveAssociations() {
 		return
 	}
 	for _, field := range scope.Fields() {
 		if scope.changeableField(field) && !field.IsBlank && !field.IsIgnored {
 			if relationship := field.Relationship; relationship != nil && relationship.Kind == "belongs_to" {
-				fieldValue := field.Field.Addr().Interface()
-				scope.Err(scope.NewDB().Save(fieldValue).Error)
+				value := field.Field
+				scope.Err(scope.NewDB().Save(value.Addr().Interface()).Error)
 				if len(relationship.ForeignFieldNames) != 0 {
-					// set value's foreign key
 					for idx, fieldName := range relationship.ForeignFieldNames {
 						associationForeignName := relationship.AssociationForeignDBNames[idx]
-						if foreignField, ok := scope.New(fieldValue).FieldByName(associationForeignName); ok {
-							scope.Err(scope.SetColumn(fieldName, foreignField.Field.Interface()))
+						if f, ok := scope.New(value.Addr().Interface()).FieldByName(associationForeignName); ok {
+							scope.Err(scope.SetColumn(fieldName, f.Field.Interface()))
 						}
 					}
 				}
@@ -33,7 +32,7 @@ func saveBeforeAssociationsCallback(scope *Scope) {
 	}
 }
 
-func saveAfterAssociationsCallback(scope *Scope) {
+func SaveAfterAssociations(scope *Scope) {
 	if !scope.shouldSaveAssociations() {
 		return
 	}
@@ -66,7 +65,7 @@ func saveAfterAssociationsCallback(scope *Scope) {
 						scope.Err(newDB.Save(elem).Error)
 
 						if joinTableHandler := relationship.JoinTableHandler; joinTableHandler != nil {
-							scope.Err(joinTableHandler.Add(joinTableHandler, newDB, scope.Value, newScope.Value))
+							scope.Err(joinTableHandler.Add(joinTableHandler, scope.NewDB(), scope.Value, newScope.Value))
 						}
 					}
 				default:

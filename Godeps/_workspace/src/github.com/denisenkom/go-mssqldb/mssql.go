@@ -262,13 +262,8 @@ func (s *MssqlStmt) Query(args []driver.Value) (res driver.Rows, err error) {
 loop:
 	for tok := range tokchan {
 		switch token := tok.(type) {
-		// by ignoring DONE token we effectively
-		// skip empty result-sets
-		// this improves results in queryes like that:
-		// set nocount on; select 1
-		// see TestIgnoreEmptyResults test
-		//case doneStruct:
-			//break loop
+		case doneStruct:
+			break loop
 		case []columnStruct:
 			cols = make([]string, len(token))
 			for i, col := range token {

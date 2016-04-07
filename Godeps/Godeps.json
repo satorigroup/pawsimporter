@@ -7,7 +7,7 @@
 	"Deps": [
 		{
 			"ImportPath": "github.com/denisenkom/go-mssqldb",
-			"Rev": "fc9d208c72865bbd50c1fcf56c487da36fa5be1e"
+			"Rev": "6e7f3d73dade2e5566f87d18c3a1d00d2ce33421"
 		},
 		{
 			"ImportPath": "github.com/fatih/color",
@@ -16,7 +16,7 @@
 		},
 		{
 			"ImportPath": "github.com/jinzhu/gorm",
-			"Rev": "5174cc5c242a728b435ea2be8a2f7f998e15429b"
+			"Rev": "f8377d80bf0d73b981c7ec39b7483776feedf79b"
 		},
 		{
 			"ImportPath": "github.com/jinzhu/inflection",
@@ -26,6 +26,11 @@
 			"ImportPath": "github.com/joho/godotenv",
 			"Comment": "v1-10-g4ed1339",
 			"Rev": "4ed13390c0acd2ff4e371e64d8b97c8954138243"
+		},
+		{
+			"ImportPath": "github.com/lib/pq/hstore",
+			"Comment": "go1.0-cutoff-74-g8ad2b29",
+			"Rev": "8ad2b298cadd691a77015666a5372eae5dbfac8f"
 		},
 		{
 			"ImportPath": "github.com/mattn/go-colorable",
@@ -42,7 +47,7 @@
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/md4",
-			"Rev": "9e7f5dc375abeb9619ea3c5c58502c428f457aa2"
+			"Rev": "c8b9e6388ef638d5a8a9d865c634befdc46a6784"
 		}
 	]
 }
