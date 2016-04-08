@@ -9,11 +9,9 @@ import (
 	"strings"
 )
 
-const (
-	TABLE        = "LibRisksV3"
-	ID           = "lrk_ID"
-	OBJECTIVE_ID = "lrk_RiskObjectiveID"
-)
+var TABLE string = GetPAWSInfo("RISK_TABLE", "LibRisksV3")
+var ID string = GetPAWSInfo("RISK_ID_FIELD", "lrk_ID")
+var OBJECTIVE_ID string = GetPAWSInfo("RISK_OBJ_FIELD", "lrk_RiskObjectiveID")
 
 type Risk struct {
 	DB      *gorm.DB
@@ -46,7 +44,11 @@ func (a *Risk) Update(columnsData []Data, rowIndex int, objId string) string {
 	}
 
 	whereString, err := a.getWhereString(columnsData)
-	a.DB.Exec(fmt.Sprintf("%s WHERE %s", updateString, whereString))
+	updateResult := a.DB.Exec(fmt.Sprintf("%s WHERE %s", updateString, whereString))
+	if updateResult.Error != nil {
+		color.Red("error occurred at row no %d while updating risk : %s", rowIndex, updateResult.Error)
+		return ""
+	}
 	color.Green("Risk is updated at row number %d", rowIndex)
 	return id
 }

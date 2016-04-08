@@ -9,10 +9,8 @@ import (
 	"strings"
 )
 
-const (
-	TABLE = "LibRiskObjectivesV3"
-	ID    = "lro_ID"
-)
+var TABLE string = GetPAWSInfo("OBJ_TABLE", "LibRiskObjectivesV3")
+var ID string = GetPAWSInfo("OBJ_ID_FIELD", "lro_ID")
 
 type Objective struct {
 	DB      *gorm.DB
@@ -38,7 +36,12 @@ func (a *Objective) Update(columnsData []Data, rowIndex int) string {
 	}
 
 	whereString, err := a.getWhereString(columnsData)
-	a.DB.Exec(fmt.Sprintf("%s WHERE %s", updateString, whereString))
+	updateResult := a.DB.Exec(fmt.Sprintf("%s WHERE %s", updateString, whereString))
+	if updateResult.Error != nil {
+		color.Red("error occurred at row no %d while updating objective : %s", rowIndex, updateResult.Error)
+		return ""
+	}
+
 	color.Green("Objective is updated at row number %d", rowIndex)
 	return objId
 }

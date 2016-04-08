@@ -1,5 +1,11 @@
 package paws
 
+import (
+	"fmt"
+	"github.com/joho/godotenv"
+	"os"
+)
+
 const (
 	TABLE_INFO_ROW  = iota // 0
 	IMPORT_INFO_ROW        // 1
@@ -18,4 +24,16 @@ type Column struct {
 type Data struct {
 	Value string
 	Index int
+}
+
+func GetPAWSInfo(envString, defaultValue string) string {
+	godotenv.Load(".env")
+	envValue := os.Getenv(envString)
+	fmt.Println(envString, envValue)
+	if envValue != "" {
+		return envValue
+	}
+
+	return defaultValue
+
 }

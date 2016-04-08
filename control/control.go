@@ -9,13 +9,11 @@ import (
 	"strings"
 )
 
-const (
-	TABLE               = "LibControlsV3"
-	RISKCONTROL_TABLE   = "LibRiskControlLinks"
-	ID                  = "lct_Id"
-	RISKCONTROL_RISK_ID = "lrcl_RiskID"
-	RISKCONTROL_CTRL_ID = "lrcl_ControlID"
-)
+var TABLE string = GetPAWSInfo("CTR_TABLE", "LibControlsV3")
+var RISKCONTROL_TABLE string = GetPAWSInfo("CTR_RSK_TABLE", "LibRiskControlLinks")
+var ID string = GetPAWSInfo("CTR_ID_FIELD", "lct_Id")
+var RISKCONTROL_RISK_ID string = GetPAWSInfo("L_RSK_ID", "lrcl_RiskID")
+var RISKCONTROL_CTRL_ID string = GetPAWSInfo("L_CTR_ID", "lrcl_ControlID")
 
 type Control struct {
 	DB      *gorm.DB
@@ -67,7 +65,11 @@ func (a *Control) Update(columnsData []Data, rowIndex int, rskId string) string 
 		}
 
 		whereString, err := a.getWhereString(columnsData)
-		a.DB.Exec(fmt.Sprintf("%s WHERE %s", updateString, whereString))
+		updateResult := a.DB.Exec(fmt.Sprintf("%s WHERE %s", updateString, whereString))
+		if updateResult.Error != nil {
+			color.Red("error occurred at row no %d while updating control : %s", rowIndex, updateResult.Error)
+			return ""
+		}
 		color.Green("Control is updated at row number %d", rowIndex)
 		return id
 	}

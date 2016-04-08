@@ -9,13 +9,11 @@ import (
 	"strings"
 )
 
-const (
-	TABLE   = "LibTests"
-	AREA_ID = "lts_LibAreaID"
-	RSK_ID  = "lts_RiskID"
-	CTRL_ID = "lts_ControlID"
-	ID      = "lts_ID"
-)
+var TABLE string = GetPAWSInfo("TST_TABLE", "LibTests")
+var AREA_ID string = GetPAWSInfo("TST_AREA_ID", "lts_LibAreaID")
+var RSK_ID string = GetPAWSInfo("TST_RSK_ID", "lts_RiskID")
+var CTRL_ID string = GetPAWSInfo("TST_CTR_ID", "lts_ControlID")
+var ID string = GetPAWSInfo("TST_FIELD_ID", "lts_ID")
 
 type Test struct {
 	DB             *gorm.DB
@@ -55,7 +53,11 @@ func (a *Test) Update(columnsData []Data, rowIndex int) {
 	}
 
 	whereString, err := a.getWhereString(columnsData)
-	a.DB.Exec(fmt.Sprintf("%s WHERE %s", updateString, whereString))
+	updateResult := a.DB.Exec(fmt.Sprintf("%s WHERE %s", updateString, whereString))
+	if updateResult.Error != nil {
+		color.Red("error occurred at row no %d while updating test: %s", rowIndex, updateResult.Error)
+		return
+	}
 	color.Green("Test is updated at row number %d", rowIndex)
 }
 
@@ -140,7 +142,7 @@ func (a *Test) exist(columnsData []Data, rowIndex int) (bool, string) {
 	}
 
 	id := ""
-	a.DB.LogMode(true)
+
 	row := a.DB.Table(TABLE).Select(fmt.Sprintf("convert(nvarchar(36), %s) as id", ID)).Where(whereString).Row()
 	row.Scan(&id)
 

@@ -9,10 +9,9 @@ import (
 	"strings"
 )
 
-const (
-	TABLE = "LibAreas"
-	ID    = "laa_ID"
-)
+var TABLE string = GetPAWSInfo("AREA_TABLE", "LibAreas")
+
+var ID string = GetPAWSInfo("AREA_ID_FIELD", "laa_ID")
 
 type Area struct {
 	DB      *gorm.DB
@@ -42,7 +41,13 @@ func (a *Area) Update(columnsData []Data, rowIndex int) string {
 	}
 
 	whereString, err := a.getWhereString(columnsData)
-	a.DB.Exec(fmt.Sprintf("%s WHERE %s", updateString, whereString))
+	updateResult := a.DB.Exec(fmt.Sprintf("%s WHERE %s", updateString, whereString))
+
+	if updateResult.Error != nil {
+		color.Red("error occurred at row no %d while updating area : %s", rowIndex, updateResult.Error)
+		return ""
+	}
+
 	color.Green("Area is updated at row number %d", rowIndex)
 	return areaId
 }
