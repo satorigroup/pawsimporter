@@ -20,8 +20,6 @@ func main() {
 		return
 	}
 
-	importer := Importer{}
-	importer.DB = db
-	importer.DataFile = conf.SourceData
+	importer := Importer{DB: db, DataFile: conf.SourceData, Config: conf}
 	importer.Begin()
 }

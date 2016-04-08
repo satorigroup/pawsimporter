@@ -7,23 +7,42 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/tealeg/xlsx"
 	"satori/pawsimporter/area"
+	. "satori/pawsimporter/config"
 	"satori/pawsimporter/control"
 	"satori/pawsimporter/objective"
 	. "satori/pawsimporter/paws"
 	"satori/pawsimporter/risk"
 	"satori/pawsimporter/test"
+	"strconv"
 	"strings"
 )
 
 type Importer struct {
 	DB               *gorm.DB
 	DataFile         string
+	Config           *Config
 	xlsxFile         *xlsx.File
 	areaColumns      []Column
 	objectiveColumns []Column
 	riskColumns      []Column
 	controlColumns   []Column
 	testColumns      []Column
+	readStart        int
+	readEnd          int
+}
+
+func (i *Importer) setLimitRows() {
+	i.readStart = 6
+	i.readEnd = 100
+
+	readRows := strings.Split(i.Config.ReadRows, "-")
+	if len(readRows) >= 2 {
+		i.readStart, _ = strconv.Atoi(readRows[0])
+		i.readEnd, _ = strconv.Atoi(readRows[1])
+	} else if len(readRows) == 1 {
+		i.readEnd, _ = strconv.Atoi(readRows[0])
+	}
+
 }
 
 func (i *Importer) Begin() {
@@ -32,6 +51,7 @@ func (i *Importer) Begin() {
 		color.Red("Sorry, unable to read given file: %s, error: %s", i.DataFile, err)
 		return
 	}
+	i.setLimitRows()
 	err := i.readXlsx()
 	if err != nil {
 		color.Red("Sorry, error occurred %s", err)
@@ -96,40 +116,29 @@ func (i *Importer) readXlsx() error {
 }
 
 func (i *Importer) startImporting() {
-	areaService := &area.Area{}
-	areaService.DB = i.DB
-	areaService.Columns = i.areaColumns
-
-	objectiveService := &objective.Objective{}
-	objectiveService.DB = i.DB
-	objectiveService.Columns = i.objectiveColumns
-
-	riskService := &risk.Risk{}
-	riskService.DB = i.DB
-	riskService.Columns = i.riskColumns
-
-	controlService := &control.Control{}
-	controlService.DB = i.DB
-	controlService.Columns = i.controlColumns
-
-	testService := &test.Test{}
-	testService.DB = i.DB
-	testService.Columns = i.testColumns
+	areaSvc := area.New(i.DB, i.areaColumns)
+	objSvc := objective.New(i.DB, i.objectiveColumns)
+	riskSvc := risk.New(i.DB, i.riskColumns)
+	ctrSvc := control.New(i.DB, i.controlColumns)
+	testSvc := test.New(i.DB, i.testColumns)
 
 	rowLength := len(i.xlsxFile.Sheets[0].Rows)
 	for rowIndex, row := range i.xlsxFile.Sheets[0].Rows[5:rowLength] {
-		areaId := areaService.Update(i.getAreaValues(row), rowIndex+6)
+		if rowIndex+6 < i.readStart || rowIndex+6 > i.readEnd {
+			continue
+		}
+		areaId := areaSvc.Update(i.getAreaValues(row), rowIndex+6)
 		if areaId == "" {
 			continue
 		}
 
-		objId := objectiveService.Update(i.getObjectiveValues(row), rowIndex+6)
+		objId := objSvc.Update(i.getObjectiveValues(row), rowIndex+6)
 		if objId != "" {
-			riskId := riskService.Update(i.getRiskValues(row), rowIndex+6, objId)
+			riskId := riskSvc.Update(i.getRiskValues(row, objId), rowIndex+6, objId)
 			if riskId != "" {
-				ctrId := controlService.Update(i.getControlValues(row), rowIndex+6, riskId)
+				ctrId := ctrSvc.Update(i.getControlValues(row), rowIndex+6, riskId)
 				if ctrId != "" {
-					testService.Update(i.getTestValues(row), rowIndex+6, areaId, riskId, ctrId)
+					testSvc.Update(i.getTestValues(row, areaId, riskId, ctrId), rowIndex+6)
 				}
 			} else {
 				color.Blue("Unabel to find Risk in row number %d", rowIndex+6)
@@ -168,7 +177,7 @@ func (i *Importer) getObjectiveValues(row *xlsx.Row) []Data {
 	return columnsData
 }
 
-func (i *Importer) getRiskValues(row *xlsx.Row) []Data {
+func (i *Importer) getRiskValues(row *xlsx.Row, objId string) []Data {
 	var columnsData []Data
 
 	for cellIndex, cell := range row.Cells {
@@ -178,6 +187,10 @@ func (i *Importer) getRiskValues(row *xlsx.Row) []Data {
 			}
 		}
 	}
+
+	objIdColumn := Data{Index: -1, Value: objId}
+	columnsData = append(columnsData, objIdColumn)
+
 	return columnsData
 }
 
@@ -195,7 +208,7 @@ func (i *Importer) getControlValues(row *xlsx.Row) []Data {
 	return columnsData
 }
 
-func (i *Importer) getTestValues(row *xlsx.Row) []Data {
+func (i *Importer) getTestValues(row *xlsx.Row, areaId, riskId, ctrId string) []Data {
 	var columnsData []Data
 
 	for cellIndex, cell := range row.Cells {
@@ -205,6 +218,14 @@ func (i *Importer) getTestValues(row *xlsx.Row) []Data {
 			}
 		}
 	}
+	ctrIdColumn := Data{Index: -1, Value: ctrId}
+	rskIdColumn := Data{Index: -2, Value: riskId}
+	areaIdColumn := Data{Index: -3, Value: areaId}
+
+	columnsData = append(columnsData, ctrIdColumn)
+	columnsData = append(columnsData, rskIdColumn)
+	columnsData = append(columnsData, areaIdColumn)
+
 	return columnsData
 }
 func (i *Importer) importObjective() {

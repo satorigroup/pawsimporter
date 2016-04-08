@@ -23,6 +23,12 @@ type SqlResult struct {
 	LaaArearef string `gorm:"column:laa_AreaRef"`
 }
 
+func New(db *gorm.DB, columns []Column) *Area {
+	areaSvc := &Area{DB: db, Columns: columns}
+
+	return areaSvc
+}
+
 func (a *Area) Update(columnsData []Data, rowIndex int) string {
 	exist, areaId := a.exist(columnsData, rowIndex)
 	if !exist {

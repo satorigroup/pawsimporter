@@ -19,6 +19,12 @@ type Objective struct {
 	Columns []Column
 }
 
+func New(db *gorm.DB, columns []Column) *Objective {
+	objSvc := &Objective{DB: db, Columns: columns}
+
+	return objSvc
+}
+
 func (a *Objective) Update(columnsData []Data, rowIndex int) string {
 	exist, objId := a.exist(columnsData, rowIndex)
 	if !exist {

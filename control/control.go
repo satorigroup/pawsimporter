@@ -26,6 +26,13 @@ type ControlId struct {
 	Id string `gorm:"column:id"`
 }
 
+func New(db *gorm.DB, columns []Column) *Control {
+	ctrSvc := &Control{DB: db, Columns: columns}
+	ctrSvc.addControlKey()
+
+	return ctrSvc
+}
+
 func (a *Control) GetControlIds(rskId string) []ControlId {
 	var ctrIds []ControlId
 	idColumn := fmt.Sprintf("%s = ?", RISKCONTROL_RISK_ID)
@@ -33,26 +40,13 @@ func (a *Control) GetControlIds(rskId string) []ControlId {
 	return ctrIds
 }
 
-func (a *Control) removeControlId() {
-	for _, column := range a.Columns {
-		if column.Index == -1 {
-			column.Name = ""
-		}
-	}
+func (a *Control) addControlKey() {
+	ctrIdColumn := Column{Import: false, Key: true, Index: -1, Name: ID}
+	a.Columns = append(a.Columns, ctrIdColumn)
 }
 
-func (a *Control) addControlId(ctrId string, columnsData *[]Data) {
-	ctrIdColumn := Column{}
-	ctrIdColumn.Import = false
-	ctrIdColumn.Key = true
-	ctrIdColumn.Index = -1
-	ctrIdColumn.Name = ID
-	a.Columns = append(a.Columns, ctrIdColumn)
-
-	ctrDataColumn := Data{}
-	ctrDataColumn.Index = -1
-	ctrDataColumn.Value = ctrId
-
+func (a *Control) setControlIdvalue(ctrId string, columnsData *[]Data) {
+	ctrDataColumn := Data{Index: -1, Value: ctrId}
 	*columnsData = append(*columnsData, ctrDataColumn)
 }
 
@@ -60,8 +54,7 @@ func (a *Control) Update(columnsData []Data, rowIndex int, rskId string) string 
 	ctrIds := a.GetControlIds(rskId)
 
 	for _, ctrId := range ctrIds {
-		a.removeControlId()
-		a.addControlId(ctrId.Id, &columnsData)
+		a.setControlIdvalue(ctrId.Id, &columnsData)
 		exist, id := a.exist(columnsData, rowIndex)
 		if !exist {
 			continue

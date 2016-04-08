@@ -20,19 +20,19 @@ type Risk struct {
 	Columns []Column
 }
 
-func (a *Risk) Update(columnsData []Data, rowIndex int, objId string) string {
-	objIdColumn := Column{}
-	objIdColumn.Import = false
-	objIdColumn.Key = true
-	objIdColumn.Index = -1
-	objIdColumn.Name = OBJECTIVE_ID
+func New(db *gorm.DB, columns []Column) *Risk {
+	rskSvc := &Risk{DB: db, Columns: columns}
+	rskSvc.addObjectiveKey()
+
+	return rskSvc
+}
+
+func (a *Risk) addObjectiveKey() {
+	objIdColumn := Column{Import: false, Key: true, Index: -1, Name: OBJECTIVE_ID}
 	a.Columns = append(a.Columns, objIdColumn)
+}
 
-	objDataColumn := Data{}
-	objDataColumn.Index = -1
-	objDataColumn.Value = objId
-	columnsData = append(columnsData, objDataColumn)
-
+func (a *Risk) Update(columnsData []Data, rowIndex int, objId string) string {
 	exist, id := a.exist(columnsData, rowIndex)
 
 	if !exist {

@@ -23,30 +23,26 @@ type Test struct {
 	arcColumnAdded bool
 }
 
-// ARC => Area, Risk and Control
-func (a *Test) addARCId(areaId, riskId, controlId string, columnsData *[]Data) {
-	if !(a.arcColumnAdded) {
-		ctrIdColumn := Column{Import: false, Key: true, Index: -1, Name: CTRL_ID}
-		rskIdColumn := Column{Import: false, Key: true, Index: -2, Name: RSK_ID}
-		areaIdColumn := Column{Import: false, Key: true, Index: -3, Name: AREA_ID}
+func New(db *gorm.DB, columns []Column) *Test {
+	testSvc := &Test{DB: db, Columns: columns}
+	testSvc.addARCId()
 
-		a.Columns = append(a.Columns, ctrIdColumn)
-		a.Columns = append(a.Columns, rskIdColumn)
-		a.Columns = append(a.Columns, areaIdColumn)
-		a.arcColumnAdded = true
-	}
-
-	ctrDataColumn := Data{Index: -1, Value: controlId}
-	rskDataColumn := Data{Index: -2, Value: riskId}
-	areaDataColumn := Data{Index: -3, Value: areaId}
-
-	*columnsData = append(*columnsData, ctrDataColumn)
-	*columnsData = append(*columnsData, rskDataColumn)
-	*columnsData = append(*columnsData, areaDataColumn)
+	return testSvc
 }
 
-func (a *Test) Update(columnsData []Data, rowIndex int, areaId, riskId, controlId string) {
-	a.addARCId(areaId, riskId, controlId, &columnsData)
+// ARC => Area, Risk and Control
+func (a *Test) addARCId() {
+	ctrIdColumn := Column{Import: false, Key: true, Index: -1, Name: CTRL_ID}
+	rskIdColumn := Column{Import: false, Key: true, Index: -2, Name: RSK_ID}
+	areaIdColumn := Column{Import: false, Key: true, Index: -3, Name: AREA_ID}
+
+	a.Columns = append(a.Columns, ctrIdColumn)
+	a.Columns = append(a.Columns, rskIdColumn)
+	a.Columns = append(a.Columns, areaIdColumn)
+
+}
+
+func (a *Test) Update(columnsData []Data, rowIndex int) {
 	exist, _ := a.exist(columnsData, rowIndex)
 	if !exist {
 		color.Blue("Test does not exist which is specified in row number %d", rowIndex)
