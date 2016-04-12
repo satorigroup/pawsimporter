@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/fatih/color"
 	"github.com/jinzhu/gorm"
+	"github.com/twinj/uuid"
 	. "satori/pawsimporter/paws"
 	"strings"
 )
@@ -32,10 +33,11 @@ func (a *Risk) addObjectiveKey() {
 
 func (a *Risk) Update(columnsData []Data, rowIndex int, objId string) string {
 	exist, id := a.exist(columnsData, rowIndex)
-
+	insertSql := ""
 	if !exist {
-		color.Blue("Risk does not exist which is specified in row number %d", rowIndex)
-		return ""
+		insertSql, id = a.getInsertString(columnsData)
+		a.DB.Exec(insertSql)
+		color.Blue("Adding a Risk which is specified in row number %d", rowIndex)
 	}
 	updateString, err := a.getUpdateString(columnsData)
 	if err != nil {
@@ -53,6 +55,34 @@ func (a *Risk) Update(columnsData []Data, rowIndex int, objId string) string {
 	return id
 }
 
+func (a *Risk) getInsertString(columnsData []Data) (string, string) {
+	rawQuery := fmt.Sprintf("INSERT INTO %s ", TABLE)
+
+	fieldString := ""
+	valueString := ""
+
+	for _, column := range a.Columns {
+		fieldString += fmt.Sprintf("%s, ", column.Name)
+		for _, columnData := range columnsData {
+			if column.Index != columnData.Index {
+				continue
+			}
+			v := a.safeSQLValue(columnData.Value)
+			if column.SqlType == "bit" {
+				v = a.setBitValue(v)
+			}
+
+			valueString += fmt.Sprintf("'%s', ", v)
+		}
+	}
+	fieldString = strings.TrimRight(fieldString, ", ")
+	valueString = strings.TrimRight(valueString, ", ")
+	guid := uuid.NewV4().String()
+	rawQuery += fmt.Sprintf("(%s, %s) VALUES ('%s', %s)", ID, fieldString, guid, valueString)
+
+	return rawQuery, guid
+}
+
 func (a *Risk) getUpdateString(columnsData []Data) (string, error) {
 	rawQuery := fmt.Sprintf("Update %s SET ", TABLE)
 	fieldsExist := false
@@ -67,7 +97,11 @@ func (a *Risk) getUpdateString(columnsData []Data) (string, error) {
 			if !fieldsExist {
 				fieldsExist = true
 			}
-			rawQuery += fmt.Sprintf(" %s = '%s', ", a.safeSQLColumn(column.Name), a.safeSQLValue(columnData.Value))
+			v := a.safeSQLValue(columnData.Value)
+			if column.SqlType == "bit" {
+				v = a.setBitValue(v)
+			}
+			rawQuery += fmt.Sprintf(" %s = '%s', ", a.safeSQLColumn(column.Name), v)
 		}
 	}
 	if !fieldsExist {
@@ -109,6 +143,14 @@ func (a *Risk) safeSQLValue(input string) string {
 func (a *Risk) safeSQLColumn(input string) string {
 	output := strings.Replace(input, "'", `''`, -1)
 	return output
+}
+
+func (a *Risk) setBitValue(input string) string {
+	input = strings.ToLower(input)
+	if input == "y" || input == "yes" {
+		return "1"
+	}
+	return "0"
 }
 
 func (a *Risk) getRefValue(columnsData []Data) map[string]string {

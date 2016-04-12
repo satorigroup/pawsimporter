@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/fatih/color"
 	"github.com/jinzhu/gorm"
+	"github.com/twinj/uuid"
 	. "satori/pawsimporter/paws"
 	"strings"
 )
@@ -19,15 +20,17 @@ type Objective struct {
 
 func New(db *gorm.DB, columns []Column) *Objective {
 	objSvc := &Objective{DB: db, Columns: columns}
-
+	objSvc.setColumnType()
 	return objSvc
 }
 
 func (a *Objective) Update(columnsData []Data, rowIndex int) string {
 	exist, objId := a.exist(columnsData, rowIndex)
+	insertSQL := ""
 	if !exist {
-		color.Red("Objective does not exist which is specified in row number %d", rowIndex)
-		return ""
+		insertSQL, objId = a.getInsertString(columnsData)
+		a.DB.Exec(insertSQL)
+		color.Red("Inserting new Objective which does not exist in row number %d", rowIndex)
 	}
 	updateString, err := a.getUpdateString(columnsData)
 	if err != nil {
@@ -46,11 +49,64 @@ func (a *Objective) Update(columnsData []Data, rowIndex int) string {
 	return objId
 }
 
+func (a *Objective) setColumnType() {
+	type SqlColumnInfo struct {
+		ColumnName string `gorm:"column:COLUMN_NAME"`
+		DataType   string `gorm:"column:DATA_TYPE"`
+	}
+	var sqlInfo []SqlColumnInfo
+	a.DB.Table("INFORMATION_SCHEMA.COLUMNS").Select("COLUMN_NAME, DATA_TYPE").Where("TABLE_NAME = ?", TABLE).Scan(&sqlInfo)
+	for _, cInfo := range sqlInfo {
+		for cIndex, column := range a.Columns {
+			if strings.ToLower(column.Name) == strings.ToLower(cInfo.ColumnName) {
+				a.Columns[cIndex].SqlType = cInfo.DataType
+
+			}
+		}
+	}
+}
+func (a *Objective) setBitValue(input string) string {
+	input = strings.ToLower(input)
+	if input == "y" || input == "yes" {
+		return "1"
+	}
+	return "0"
+}
+func (a *Objective) getInsertString(columnsData []Data) (string, string) {
+	rawQuery := fmt.Sprintf("INSERT INTO %s ", TABLE)
+
+	fieldString := ""
+	valueString := ""
+
+	for _, column := range a.Columns {
+		if !column.Import {
+			continue
+		}
+		fieldString += fmt.Sprintf("%s, ", column.Name)
+		for _, columnData := range columnsData {
+			if column.Index != columnData.Index {
+				continue
+			}
+			v := a.safeSQLValue(columnData.Value)
+			if column.SqlType == "bit" {
+				v = a.setBitValue(v)
+			}
+			valueString += fmt.Sprintf("'%s', ", v)
+		}
+	}
+	fieldString = strings.TrimRight(fieldString, ", ")
+	valueString = strings.TrimRight(valueString, ", ")
+	guid := uuid.NewV4().String()
+	rawQuery += fmt.Sprintf("(%s, %s) VALUES ('%s', %s)", ID, fieldString, guid, valueString)
+
+	return rawQuery, guid
+}
+
 func (a *Objective) getUpdateString(columnsData []Data) (string, error) {
 	rawQuery := fmt.Sprintf("Update %s SET ", TABLE)
 	fieldsExist := false
 	for _, column := range a.Columns {
-		if column.Key {
+		if column.Key || !column.Import {
 			continue
 		}
 		for _, columnData := range columnsData {
@@ -60,7 +116,11 @@ func (a *Objective) getUpdateString(columnsData []Data) (string, error) {
 			if !fieldsExist {
 				fieldsExist = true
 			}
-			rawQuery += fmt.Sprintf(" %s = '%s', ", a.safeSQLColumn(column.Name), a.safeSQLValue(columnData.Value))
+			v := a.safeSQLValue(columnData.Value)
+			if column.SqlType == "bit" {
+				v = a.setBitValue(v)
+			}
+			rawQuery += fmt.Sprintf(" %s = '%s', ", a.safeSQLColumn(column.Name), v)
 		}
 	}
 	if !fieldsExist {

@@ -141,10 +141,10 @@ func (i *Importer) startImporting() {
 					testSvc.Update(i.getTestValues(row, areaId, riskId, ctrId), rowIndex+6)
 				}
 			} else {
-				color.Blue("Unabel to find Risk in row number %d", rowIndex+6)
+				color.Blue("Unable to find Risk in row number %d", rowIndex+6)
 			}
 		} else {
-			color.Blue("Unabel to find Objective in row number %d", rowIndex+6)
+			color.Blue("Unable to find Objective in row number %d", rowIndex+6)
 		}
 
 	}
@@ -156,7 +156,7 @@ func (i *Importer) getAreaValues(row *xlsx.Row) []Data {
 	for cellIndex, cell := range row.Cells {
 		for _, areaColumn := range i.areaColumns {
 			if areaColumn.Index == cellIndex {
-				columnsData = append(columnsData, Data{cell.String(), cellIndex})
+				columnsData = append(columnsData, Data{cell.Value, cellIndex})
 			}
 		}
 	}
@@ -170,7 +170,7 @@ func (i *Importer) getObjectiveValues(row *xlsx.Row) []Data {
 		for _, objectiveColumn := range i.objectiveColumns {
 			if objectiveColumn.Index == cellIndex {
 
-				columnsData = append(columnsData, Data{cell.String(), cellIndex})
+				columnsData = append(columnsData, Data{cell.Value, cellIndex})
 			}
 		}
 	}
@@ -183,7 +183,7 @@ func (i *Importer) getRiskValues(row *xlsx.Row, objId string) []Data {
 	for cellIndex, cell := range row.Cells {
 		for _, riskColumn := range i.riskColumns {
 			if riskColumn.Index == cellIndex {
-				columnsData = append(columnsData, Data{cell.String(), cellIndex})
+				columnsData = append(columnsData, Data{cell.Value, cellIndex})
 			}
 		}
 	}
@@ -200,7 +200,7 @@ func (i *Importer) getControlValues(row *xlsx.Row) []Data {
 	for cellIndex, cell := range row.Cells {
 		for _, controlColumn := range i.controlColumns {
 			if controlColumn.Index == cellIndex {
-				columnsData = append(columnsData, Data{cell.String(), cellIndex})
+				columnsData = append(columnsData, Data{cell.Value, cellIndex})
 			}
 		}
 	}
@@ -214,7 +214,7 @@ func (i *Importer) getTestValues(row *xlsx.Row, areaId, riskId, ctrId string) []
 	for cellIndex, cell := range row.Cells {
 		for _, testColumn := range i.testColumns {
 			if testColumn.Index == cellIndex {
-				columnsData = append(columnsData, Data{cell.String(), cellIndex})
+				columnsData = append(columnsData, Data{cell.Value, cellIndex})
 			}
 		}
 	}
@@ -254,26 +254,26 @@ func (i *Importer) getColumns(rows []*xlsx.Row, tableName string, cellIndex int)
 	for _, row := range rows[4:5] {
 		for _, cell := range row.Cells[cellIndex:len(row.Cells)] {
 			column := Column{}
-			tableInfo := strings.ToLower(rows[0].Cells[cellIndex].String())
+			tableInfo := strings.ToLower(rows[0].Cells[cellIndex].Value)
 			tableInfo = strings.TrimSpace(tableInfo)
 
-			importInfo := strings.ToLower(rows[1].Cells[cellIndex].String())
+			importInfo := strings.ToLower(rows[1].Cells[cellIndex].Value)
 			importInfo = strings.TrimSpace(importInfo)
 
 			if importInfo == "y" || importInfo == "yes" {
 				column.Import = true
 			}
 
-			keyInfo := strings.ToLower(rows[2].Cells[cellIndex].String())
+			keyInfo := strings.ToLower(rows[2].Cells[cellIndex].Value)
 			keyInfo = strings.TrimSpace(keyInfo)
 			if keyInfo == "y" || keyInfo == "yes" {
 				column.Key = true
 			}
 
 			column.Index = cellIndex
-			column.Name = cell.String()
+			column.Name = cell.Value
 			if i.CellReadble(3, cellIndex, rows) {
-				column.Alias = rows[3].Cells[cellIndex].String()
+				column.Alias = rows[3].Cells[cellIndex].Value
 			}
 
 			if tableInfo != tableName && tableInfo != "" {
@@ -281,7 +281,7 @@ func (i *Importer) getColumns(rows []*xlsx.Row, tableName string, cellIndex int)
 			}
 
 			if strings.TrimSpace(column.Name) != "" {
-				color.Green("  %s", cell.String())
+				color.Green("  %s", cell.Value)
 				i.addColumns(column, tableName)
 			}
 			cellIndex += 1

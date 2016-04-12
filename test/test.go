@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/fatih/color"
 	"github.com/jinzhu/gorm"
+	"github.com/twinj/uuid"
 	. "satori/pawsimporter/paws"
 	"strings"
 )
@@ -24,6 +25,7 @@ type Test struct {
 func New(db *gorm.DB, columns []Column) *Test {
 	testSvc := &Test{DB: db, Columns: columns}
 	testSvc.addARCId()
+	testSvc.setColumnType()
 
 	return testSvc
 }
@@ -43,8 +45,9 @@ func (a *Test) addARCId() {
 func (a *Test) Update(columnsData []Data, rowIndex int) {
 	exist, _ := a.exist(columnsData, rowIndex)
 	if !exist {
-		color.Blue("Test does not exist which is specified in row number %d", rowIndex)
-		return
+		color.Blue("Adding Test which does not exist which is specified in row number %d", rowIndex)
+		insertSqlString, _ := a.getInsertString(columnsData)
+		a.DB.Exec(insertSqlString)
 	}
 	updateString, err := a.getUpdateString(columnsData)
 	if err != nil {
@@ -61,11 +64,54 @@ func (a *Test) Update(columnsData []Data, rowIndex int) {
 	color.Green("Test is updated at row number %d", rowIndex)
 }
 
+func (a *Test) setBitValue(input string) string {
+	input = strings.ToLower(input)
+	if input == "y" || input == "yes" {
+		return "1"
+	}
+	return "0"
+}
+
+func (a *Test) getInsertString(columnsData []Data) (string, string) {
+	rawQuery := fmt.Sprintf("INSERT INTO %s ", TABLE)
+
+	fieldString := ""
+	valueString := ""
+
+	for _, column := range a.Columns {
+		if !column.Import && column.Index > 0 {
+			continue
+		}
+
+		fieldString += fmt.Sprintf("%s, ", column.Name)
+		if column.IsRTF {
+			fieldString += fmt.Sprintf("%s_RTF, ", column.Name)
+		}
+
+		for _, columnData := range columnsData {
+			if column.Index != columnData.Index {
+				continue
+			}
+			valueString += fmt.Sprintf("'%s', ", a.safeSQLValue(columnData.Value))
+			if column.IsRTF {
+				rtfString := fmt.Sprintf("%s %s %s", RTF_START, columnData.Value, RTF_END)
+				valueString += fmt.Sprintf("'%s', ", a.safeSQLValue(rtfString))
+			}
+		}
+	}
+	fieldString = strings.TrimRight(fieldString, ", ")
+	valueString = strings.TrimRight(valueString, ", ")
+	guid := uuid.NewV4().String()
+	rawQuery += fmt.Sprintf("(%s, %s) VALUES ('%s', %s)", ID, fieldString, guid, valueString)
+	fmt.Println(rawQuery)
+	return rawQuery, guid
+}
+
 func (a *Test) getUpdateString(columnsData []Data) (string, error) {
 	rawQuery := fmt.Sprintf("Update %s SET ", TABLE)
 	fieldsExist := false
 	for _, column := range a.Columns {
-		if column.Key {
+		if column.Key || !column.Import {
 			continue
 		}
 		for _, columnData := range columnsData {
@@ -76,6 +122,10 @@ func (a *Test) getUpdateString(columnsData []Data) (string, error) {
 				fieldsExist = true
 			}
 			rawQuery += fmt.Sprintf(" %s = '%s', ", a.safeSQLColumn(column.Name), a.safeSQLValue(columnData.Value))
+			if column.IsRTF {
+				rtfString := fmt.Sprintf("%s %s %s", RTF_START, columnData.Value, RTF_END)
+				rawQuery += fmt.Sprintf(" %s_RTF = '%s', ", a.safeSQLColumn(column.Name), a.safeSQLValue(rtfString))
+			}
 		}
 	}
 	if !fieldsExist {
@@ -109,6 +159,35 @@ func (a *Test) getWhereString(columnsData []Data) (string, error) {
 	return rawQuery, nil
 }
 
+func (a *Test) setColumnType() {
+	type SqlColumnInfo struct {
+		ColumnName string `gorm:"column:COLUMN_NAME"`
+		DataType   string `gorm:"column:DATA_TYPE"`
+	}
+
+	var sqlInfo []SqlColumnInfo
+	a.DB.Table("INFORMATION_SCHEMA.COLUMNS").Select("COLUMN_NAME, DATA_TYPE").Where("TABLE_NAME = ?", TABLE).Scan(&sqlInfo)
+	for _, cInfo := range sqlInfo {
+		for cIndex, column := range a.Columns {
+			if strings.ToLower(column.Name) == strings.ToLower(cInfo.ColumnName) {
+				a.Columns[cIndex].SqlType = cInfo.DataType
+
+			}
+		}
+	}
+
+	for cIndex, column := range a.Columns {
+		rtfColumn := fmt.Sprintf("%s_RTF", column.Name)
+		for _, cInfo := range sqlInfo {
+			rtfColumn := strings.ToLower(rtfColumn)
+			if rtfColumn == strings.ToLower(cInfo.ColumnName) {
+				a.Columns[cIndex].IsRTF = true
+
+			}
+		}
+	}
+
+}
 func (a *Test) safeSQLValue(input string) string {
 	output := strings.Replace(input, "'", `''`, -1)
 	return output
